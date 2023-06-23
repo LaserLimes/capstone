@@ -1,0 +1,61 @@
+#Load libraries
+library("dplyr")
+library("openxlsx")
+library("Seurat")
+
+#Load Data 
+df1 <- read.csv("~/Capstone/OneDrive_1_1-26-2023/ID533_Q2_GEX_ID533_Q2_VDJ/vdj_b/filtered_contig_annotations.csv")
+df2 <- read.csv("~/Capstone Files/ID533_Q2_IL6R_POS_barcodes.csv")
+
+selected_rows <- df1 %>% 
+  filter(barcode %in% df2$x) %>% 
+  select(barcode, chain, v_gene, d_gene, c_gene, cdr3)
+
+# Write selected rows to a new CSV file
+class(selected_rows$chain)
+
+# Split selected_rows into two data frames based on chain type
+df_IgH <- selected_rows %>% filter(chain == "IGH")
+df_IgKL <- selected_rows %>% filter(chain %in% c("IGK", "IGL"))
+nrow(df_IgH)
+nrow(df_IgKL)
+
+# Create a new XLSX file
+wb <- createWorkbook()
+addWorksheet(wb, "Heavy_Chain")
+addWorksheet(wb, "Light_Chain")
+
+# Write each data frame to a separate sheet in the Excel file
+writeData(wb, sheet = "Heavy_Chain", df_IgH)
+writeData(wb, sheet = "Light_Chain", df_IgKL)
+
+# Save the workbook
+saveWorkbook(wb, "ID533_Q2_IL6R_POS_VDJ_Families.xlsx")
+
+# IL6R Negative
+df2 <- read.csv("~/Capstone Files/ID533_Q2_IL6R_Neg_barcodes.csv")
+
+# Select rows from df1 that match barcode values in df2 and include the specified columns
+selected_rows <- df1 %>% 
+  filter(barcode %in% df2$x) %>% 
+  select(barcode, chain, v_gene, d_gene, c_gene, cdr3)
+class(selected_rows$chain)
+
+# Split selected_rows into two data frames based on chain type
+df_IgH <- selected_rows %>% filter(chain == "IGH")
+df_IgKL <- selected_rows %>% filter(chain %in% c("IGK", "IGL"))
+nrow(df_IgH)
+nrow(df_IgKL)
+
+# Create a new XLSX file
+wb <- createWorkbook()
+addWorksheet(wb, "Heavy_Chain")
+addWorksheet(wb, "Light_Chain")
+
+# Write each data frame to a separate sheet in the Excel file
+writeData(wb, sheet = "Heavy_Chain", df_IgH)
+writeData(wb, sheet = "Light_Chain", df_IgKL)
+
+# Save the workbook
+saveWorkbook(wb, "ID533_Q2_IL6R_NEG_VDJ_Families.xlsx")
+

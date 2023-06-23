@@ -1,0 +1,113 @@
+#Andrew = ID533_Q2
+#Run Seurat for exploratory analysis. Create a Seurat object,
+#run a series of QC and computational steps to build on that object and
+#prep it for analysis. 
+
+#Load the necessary libraries for analysis and data visualization.
+library(Seurat)
+library(ggplot2)
+library(patchwork)
+library(dplyr)
+library(Matrix)
+#Load in the data.
+llpc.data <- Read10X(data.dir = "~/Capstone/") #Your directory containing the barcodes.tsv.gz, features.tsv.gz, and matrix.tsv.gz files.
+llpc <- CreateSeuratObject(counts = llpc.data, project = "LLPC", min.cells = 3, min.features = 200) #Are these parameters good?
+llpc
+
+#QC the data.
+#Visualize QC metrics as a violin plot and feature scatter plots.
+#Use these visualizations to search for QC cutoffs. The goal is to eliminate non-viable cells.
+llpc[["percent.mt"]] <- PercentageFeatureSet(llpc, pattern = "^MT-")
+head(llpc@meta.data, 5)
+VlnPlot(llpc, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3, cols = "goldenrod1")
+plot1 <- FeatureScatter(llpc, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(llpc, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+
+#Generate a subset of the data removing undesirable cells. 
+#These numbers come from the violin plots and are not plug and play.
+llpc <- subset(llpc, subset = nFeature_RNA > 1100 & nFeature_RNA < 3000 & nCount_RNA < 40000 & percent.mt < 5)
+
+#Normalize the data. These are the default settings. 
+llpc <- NormalizeData(llpc, normalization.method = "LogNormalize")
+
+#ID variable features. nfeatures may need adjusting, but you won't know until later. You may need to come back to this point.
+#vst stands for variance-stabilizing transformation which corrects for problems introduced by using a log based normalization.
+llpc <- FindVariableFeatures(llpc, selection.method = "vst", nfeatures = 2000)
+top10 <- head(VariableFeatures(llpc), 10)
+plot3 <- VariableFeaturePlot(llpc)
+plot4 <- LabelPoints(plot = plot3, points = top10)       
+plot4
+
+#Excluding Ig_related genes. They are not biologically relevant to our project. 
+count<-data.frame(GetAssayData(llpc, assay = "RNA"))
+ig.gene=count[grep("^IG",row.names(count)),]
+count.clean <- count[-(which(rownames(count) %in% rownames(ig.gene))),]
+dim(count)
+dim(count.clean)
+llpc.filter <- subset(llpc, features = rownames(count.clean))
+
+#Identify the 10 most highly variable genes after filtering out IG genes.
+#We run this x2 to visually confirm we eliminated the right stuff. 
+top10 <- head(VariableFeatures(llpc.filter), 10)
+plot5 <- VariableFeaturePlot(llpc.filter)
+plot6 <- LabelPoints(plot = plot5, points = top10, repel = TRUE)
+plot6
+
+#Scale the data preprocessing for PCA.
+all.genes <- rownames(llpc.filter)
+llpc <- ScaleData(llpc.filter, features = all.genes)
+
+#Linear Dimensional Reduction.
+llpc <- RunPCA(llpc, features = VariableFeatures(object = llpc))
+print(llpc[["pca"]], dims = 1:5, nfeatures = 5)
+VizDimLoadings(llpc, dims = 1:2, reduction = "pca")
+DimPlot(llpc, reduction = "pca")
+
+#Determine Dimmensionality for next steps.
+ElbowPlot(llpc)
+
+#Generate clusters of cells and search for markers.
+#This is the actual analysis part.
+#The resolution is adjustable. Lower will show fewer seperations between clusters and vice versa.
+#Try adjusting the resolution and see how it impacts your results. 
+llpc <- FindNeighbors(llpc, dims = 1:10)
+llpc <- FindClusters(llpc, resolution = 0.5)
+llpc <- RunUMAP(llpc, dims = 1:10)
+
+DimPlot(llpc, reduction = "umap")
+VlnPlot(llpc, features = c("TNFRSF17", "CD38", "IL6R", "CXCR4", "CD27", "SDC1", "IRF4", "PRDM1", "XBP1", "KLF4", "MCL1", "ERO1B", "ZNF667", "MANF", "STAT3", "IKZF3", "ATG5", "DEPTOR", "LAMP3"))
+FeaturePlot(llpc, features = c("TNFRSF17", "CD38", "IL6R", "CXCR4", "CD27", "SDC1", "IRF4", "PRDM1", "XBP1", "KLF4", "MCL1", "ERO1B", "ZNF667", "MANF", "STAT3", "IKZF3", "ATG5", "DEPTOR", "LAMP3"))
+FeaturePlot(llpc, pt.size = 1.25, features = c("IRF4"), cols = c("lavender", "seagreen"))
+
+#Isolate the cell clusters of interest. Creates a subset object.
+#In my case cluster 3 appeared to be most relevant
+sub_obj <- subset(x = llpc, idents = 3, invert = FALSE)
+saveRDS(sub_obj, file = "~/Capstone Files/subsetted_cluster3.rds")
+
+#Output list of cells with specific markers.
+IL6R_Positive <- WhichCells(sub_obj, expression = IL6R > 0)
+IL6R_Negative <- WhichCells(sub_obj, expression = IL6R > 0, invert = TRUE)
+write.csv(IL6R_Positive, "~/Capstone Files/ID533_Q2_IL6R_POS_barcodes.csv")
+write.csv(IL6R_Negative, "~/Capstone Files/ID533_Q2_IL6R_Neg_barcodes.csv")
+
+#166 cells remain.
+#Write RDS files
+IL6R_Positive_Subset <- subset(x = sub_obj, subset = IL6R > 0, invert = FALSE)
+IL6R_Negative_Subset <- subset(x = sub_obj, subset = IL6R > 0, invert = TRUE)
+saveRDS(IL6R_Positive_Subset, file = "~/Capstone Files/IL6R_Positive_Subset.rds")
+saveRDS(IL6R_Negative_Subset, file = "~/Capstone Files/IL6R_Negative_Subset.rds")
+
+#Write CSV files of the Matrices
+Positive <- GetAssayData(IL6R_Positive_Subset, slot = "data")
+write.csv(Positive, "~/Capstone Files/ID533_Q2_IL6R_POS_Matrix.csv")
+Negative <- GetAssayData(IL6R_Negative_Subset, slot = "data")
+write.csv(Positive, "~/Capstone Files/ID533_Q2_IL6R_Neg_Matrix.csv")
+
+#Get the top 20 variable features of the IL6R positive cells.                    
+Top20_Variable_Features <- head(FindVariableFeatures(Positive), 20)
+write.csv(Top20_Variable_Features, file = "~/Capstone Files/Top20_Variable_Features.csv")
+
+
+
+help(log)

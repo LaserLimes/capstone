@@ -1,0 +1,70 @@
+#Analyzing the v-gene frequency in IL6R_Pos cells
+.libPaths()
+library(tidyverse)
+
+library(readxl)
+install.packages("readxl")
+library(readxl)
+# set the file path and sheet name
+file_path <- "~/Capstone Files/ID533_Q2_IL6R_POS_VDJ_Families.xlsx"
+sheet_name <- "Heavy_Chain"
+
+# read the Excel file
+vdj_data <- read_excel(file_path, sheet = sheet_name)
+
+
+# Count the frequency of each V gene
+v_gene_freq <- table(vdj_data$v_gene)
+
+# Save the table to a CSV file
+write.csv(v_gene_freq, file = "ID533_Q2_IL6R_Pos_v_gene_freq.csv")
+
+
+
+library(ggplot2)
+
+# Create a data frame from the table of V-gene frequencies
+v_gene_freq_df <- as.data.frame(v_gene_freq)
+v_gene_freq_df$V_gene <- rownames(v_gene_freq_df)
+colnames(v_gene_freq_df) <- c("Frequency", "V_gene")
+
+# Create a bar plot
+ggplot(data = v_gene_freq_df, aes(x = V_gene, y = Frequency)) +
+  geom_bar(stat = "identity", fill = "dodgerblue") +
+  xlab("V Gene") +
+  ylab("Frequency") +
+  ggtitle("V Gene Frequencies")
+
+
+
+### Repeating the analyzing for the IL6_Neg vdj genes
+
+# set the file path and sheet name
+file_path <- "~/Capstone Files/ID533_Q2_IL6R_NEG_VDJ_Families.xlsx"
+sheet_name <- "Heavy_Chain"
+
+# read the Excel file
+vdj_data <- read_excel(file_path, sheet = sheet_name)
+
+
+# Count the frequency of each V gene
+v_gene_freq <- table(vdj_data$v_gene)
+
+# Save the table to a CSV file
+write.csv(v_gene_freq, file = "ID533_Q2_IL6R_NEG_v_gene_freq.csv")
+
+
+
+library(ggplot2)
+
+# Create a data frame from the table of V-gene frequencies
+v_gene_freq_df <- as.data.frame(v_gene_freq)
+v_gene_freq_df$V_gene <- rownames(v_gene_freq_df)
+colnames(v_gene_freq_df) <- c("Frequency", "V_gene")
+
+# Create a bar plot
+ggplot(data = v_gene_freq_df, aes(x = V_gene, y = Frequency)) +
+  geom_bar(stat = "identity", fill = "dodgerblue") +
+  xlab("V Gene") +
+  ylab("Frequency") +
+  ggtitle("V Gene Frequencies")
